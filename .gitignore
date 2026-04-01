@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.env/
+
+# Data files (large)
+data/raw/*.sgm
+data/index/*.pkl
+
+# Results (optional to track)
+results/logs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
