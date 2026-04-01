@@ -10,7 +10,7 @@ def parse_sgm_file(file_path: str) -> List[Dict]:
     with open(file_path, 'r', encoding='latin-1') as f:
         content = f.read()
 
-    soup = BeautifulSoup(content, 'lxml')
+    soup = BeautifulSoup(content, 'html.parser')
     documents = []
 
     for article in soup.find_all('reuters'):
