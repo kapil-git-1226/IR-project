@@ -532,7 +532,7 @@ where:
 - N = total number of documents
 - df(t) = number of documents containing term t
 ```
-
+ 
 **Implementation**:
 
 ```python
