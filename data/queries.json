@@ -1,0 +1,62 @@
+[
+  {
+    "query_id": "Q001",
+    "text": "jaguar",
+    "type": "ambiguous",
+    "description": "Animal species vs Jaguar Cars automotive company"
+  },
+  {
+    "query_id": "Q002",
+    "text": "bank",
+    "type": "ambiguous",
+    "description": "River bank (geographical) vs financial bank/institution"
+  },
+  {
+    "query_id": "Q003",
+    "text": "stock",
+    "type": "ambiguous",
+    "description": "Farm livestock vs financial stock/shares"
+  },
+  {
+    "query_id": "Q004",
+    "text": "crash",
+    "type": "ambiguous",
+    "description": "Vehicle/aviation accident vs stock market crash"
+  },
+  {
+    "query_id": "Q005",
+    "text": "turkey",
+    "type": "ambiguous",
+    "description": "Country of Turkey vs turkey bird"
+  },
+  {
+    "query_id": "Q006",
+    "text": "stock market crash",
+    "type": "specific",
+    "description": "Financial market decline event"
+  },
+  {
+    "query_id": "Q007",
+    "text": "oil prices middle east",
+    "type": "specific",
+    "description": "Petroleum pricing in the Middle East region"
+  },
+  {
+    "query_id": "Q008",
+    "text": "interest rate policy",
+    "type": "specific",
+    "description": "Central bank monetary policy and interest rates"
+  },
+  {
+    "query_id": "Q009",
+    "text": "international trade agreement",
+    "type": "specific",
+    "description": "Global trade deals and agreements between nations"
+  },
+  {
+    "query_id": "Q010",
+    "text": "corporate merger acquisition",
+    "type": "specific",
+    "description": "Company mergers and acquisition announcements"
+  }
+]
