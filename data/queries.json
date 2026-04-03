@@ -7,9 +7,9 @@
   },
   {
     "query_id": "Q002",
-    "text": "bank",
+    "text": "bank interest rate",
     "type": "ambiguous",
-    "description": "River bank (geographical) vs financial bank/institution"
+    "description": "Could expand toward financial banking OR general economic interest rate policy"
   },
   {
     "query_id": "Q003",
@@ -19,9 +19,9 @@
   },
   {
     "query_id": "Q004",
-    "text": "crash",
+    "text": "market crash 1987",
     "type": "ambiguous",
-    "description": "Vehicle/aviation accident vs stock market crash"
+    "description": "The 1987 Black Monday stock market collapse and its financial impact"
   },
   {
     "query_id": "Q005",
