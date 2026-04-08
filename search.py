@@ -90,7 +90,7 @@ while True:
         query,
         bm25,
         top_k=TOP_K,
-        feedback_docs=5,
-        expansion_terms=5
+        feedback_docs=5,      # Use more docs to get broader context
+        expansion_terms=5      # Add fewer expansion terms to reduce drift
     )
     display_results(prf_results, "BM25 + PRF (Expanded)", doc_lookup, TOP_K, extra_info=expanded_query)
