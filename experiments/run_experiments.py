@@ -28,6 +28,7 @@ from metrics import precision_at_k, recall, average_precision, mean_average_prec
 INDEX_PATH     = os.path.join(BASE_DIR, 'data', 'index', 'inverted_index.pkl')
 QUERIES_PATH   = os.path.join(BASE_DIR, 'data', 'queries.json')
 JUDGMENTS_PATH = os.path.join(BASE_DIR, 'data', 'relevance_judgments.json')
+DOCS_PATH      = os.path.join(BASE_DIR, 'data', 'processed', 'documents.json')
 
 TOP_K          = 15   # How many results to retrieve & evaluate
 
@@ -38,7 +39,10 @@ preprocessor = TextPreprocessor()
 
 tfidf = TFIDFRetrieval(index)
 bm25  = BM25Retrieval(index)
-prf   = PseudoRelevanceFeedback(index, preprocessor)
+with open(DOCS_PATH, 'r', encoding='utf-8') as f:
+    all_docs = json.load(f)
+doc_lookup = {doc['doc_id']: doc['text'] for doc in all_docs}
+prf = PseudoRelevanceFeedback(index, preprocessor, doc_lookup=doc_lookup)
 
 with open(QUERIES_PATH, 'r') as f:
     queries = json.load(f)
@@ -71,7 +75,7 @@ def run_model(model_name, search_fn, queries, all_judgments, top_k):
         judgments    = all_judgments[qid]
         relevant_set = {doc_id for doc_id, label in judgments.items() if label == 1}
 
-        results      = search_fn(qtext)
+        results      = search_fn(q)
         retrieved    = [doc_id for doc_id, _ in results]
 
         ap  = average_precision(retrieved, relevant_set)
@@ -102,25 +106,43 @@ def run_model(model_name, search_fn, queries, all_judgments, top_k):
 # ── Run all three models ─────────────────────────────────────────────────────
 results_tfidf = run_model(
     "TF-IDF",
-    lambda q: tfidf.search(q, preprocessor, top_k=TOP_K),
+    lambda q: tfidf.search(q['text'], preprocessor, top_k=TOP_K),
     queries, all_judgments, TOP_K
 )
 
 results_bm25 = run_model(
     "BM25",
-    lambda q: bm25.search(q, preprocessor, top_k=TOP_K),
+    lambda q: bm25.search(q['text'], preprocessor, top_k=TOP_K),
     queries, all_judgments, TOP_K
 )
 
 results_prf = run_model(
     "BM25 + PRF",
-    lambda q: prf.search_with_prf(q, bm25, top_k=TOP_K, feedback_docs=5, expansion_terms=5)[0],
+    lambda q: prf.search_with_prf(q['text'], bm25, top_k=TOP_K, feedback_docs=5, expansion_terms=5)[0],
+    queries, all_judgments, TOP_K
+)
+
+results_prf_enhanced = run_model(
+    "BM25 + Enhanced PRF",
+    # Adaptive strategy: use expansion only for specific queries;
+    # for ambiguous queries keep BM25 to avoid query drift.
+    lambda q: (
+        prf.search_with_prf(
+            q['text'],
+            bm25,
+            top_k=TOP_K,
+            feedback_docs=5,
+            expansion_terms=5
+        )[0]
+        if q.get('type') == 'specific'
+        else bm25.search(q['text'], preprocessor, top_k=TOP_K)
+    ),
     queries, all_judgments, TOP_K
 )
 
 
 # ── Print report ─────────────────────────────────────────────────────────────
-models = [results_tfidf, results_bm25, results_prf]
+models = [results_tfidf, results_bm25, results_prf, results_prf_enhanced]
 
 print("=" * 65)
 print("  EVALUATION REPORT — Ambiguity-Aware News Retrieval System")
@@ -168,6 +190,32 @@ print(f"\n  MAP    : {fmt(map_gain)}")
 print(f"  P@5    : {fmt(p5_gain)}")
 print(f"  P@10   : {fmt(p10_gain)}")
 print(f"  Recall : {fmt(recall_gain)}")
+
+print(f"\n{'─'*65}")
+print("  ENHANCED PRF IMPROVEMENT OVER BM25 BASELINE")
+print(f"{'─'*65}")
+emap_gain    = results_prf_enhanced['MAP']    - results_bm25['MAP']
+ep5_gain     = results_prf_enhanced['P@5']    - results_bm25['P@5']
+ep10_gain    = results_prf_enhanced['P@10']   - results_bm25['P@10']
+erecall_gain = results_prf_enhanced['Recall'] - results_bm25['Recall']
+
+print(f"\n  MAP    : {fmt(emap_gain)}")
+print(f"  P@5    : {fmt(ep5_gain)}")
+print(f"  P@10   : {fmt(ep10_gain)}")
+print(f"  Recall : {fmt(erecall_gain)}")
+
+print(f"\n{'─'*65}")
+print("  ENHANCED PRF IMPROVEMENT OVER BASELINE PRF")
+print(f"{'─'*65}")
+emap_vs_prf    = results_prf_enhanced['MAP']    - results_prf['MAP']
+ep5_vs_prf     = results_prf_enhanced['P@5']    - results_prf['P@5']
+ep10_vs_prf    = results_prf_enhanced['P@10']   - results_prf['P@10']
+erecall_vs_prf = results_prf_enhanced['Recall'] - results_prf['Recall']
+
+print(f"\n  MAP    : {fmt(emap_vs_prf)}")
+print(f"  P@5    : {fmt(ep5_vs_prf)}")
+print(f"  P@10   : {fmt(ep10_vs_prf)}")
+print(f"  Recall : {fmt(erecall_vs_prf)}")
 
 print(f"\n{'='*65}")
 print("  Experiment complete.")

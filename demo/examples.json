@@ -1,0 +1,37 @@
+{
+  "examples": [
+    {
+      "id": "specific-oil",
+      "label": "Specific: Oil Prices",
+      "query": "oil prices middle east",
+      "docs": [
+        "Oil prices in Middle East rose sharply following OPEC production cuts.",
+        "Crude oil futures climbed as Middle Eastern tensions escalated.",
+        "Saudi Arabia and UAE agreed to reduce oil output affecting prices.",
+        "Brent crude from Middle East reached 85 dollars per barrel."
+      ]
+    },
+    {
+      "id": "ambiguous-python",
+      "label": "Ambiguous: Python",
+      "query": "python",
+      "docs": [
+        "Python programming language is widely used in data science.",
+        "Python 3.11 introduced significant performance improvements.",
+        "Python frameworks like Django enable web development.",
+        "Python snakes are non-venomous constrictors found in tropical regions."
+      ]
+    },
+    {
+      "id": "market-crash",
+      "label": "Financial Event",
+      "query": "stock market crash 1987",
+      "docs": [
+        "The 1987 stock market crash known as Black Monday saw Dow Jones drop 22 percent.",
+        "Stock market volatility increased during October 1987 financial crisis.",
+        "Market crash of 1987 triggered circuit breakers and trading halts.",
+        "Program trading and portfolio insurance were blamed for crash severity."
+      ]
+    }
+  ]
+}

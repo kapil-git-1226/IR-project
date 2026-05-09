@@ -1,557 +1,356 @@
-# Project Context — Ambiguity-Aware News Retrieval using Query Expansion and Pseudo-Relevance Feedback
-## Complete Technical Reference for AI Assistants
+# Project Context for LLMs
+## Ambiguity-Resilient News Retrieval (Reuters-21578)
 
-> This file is a complete, self-contained context document for this Information Retrieval (IR) project.
-> It covers every module, every algorithm, every design decision, and the complete execution flow.
-> Intended audience: Any AI/LLM (ChatGPT, Gemini, etc.) being asked to help with this project.
-
----
-
-## 1. Project Overview
-
-This is a **semester 6 B.Tech Information Retrieval (IR) project** built entirely from scratch in Python.
-
-**Goal:** Build and evaluate an end-to-end IR system on the Reuters-21578 news dataset that:
-1. Parses raw SGML news files
-2. Preprocesses text (tokenization, stopword removal, stemming)
-3. Builds an Inverted Index
-4. Implements TF-IDF and BM25 retrieval models
-5. Implements Pseudo-Relevance Feedback (PRF) query expansion
-6. Evaluates all three models using TREC-style pooled relevance judgments
-
-**Dataset:** Reuters-21578 — a classic IR benchmark corpus of 20,841 financial news wire articles from 1987, stored in 22 SGML `.sgm` files.
-
-**Key Statistics:**
-- Total Documents: 20,841
-- Unique Stemmed Terms in Index: 34,405
-- Average Document Length: ~88 tokens
-- Number of Test Queries: 10 (5 ambiguous, 5 specific)
-
-**Tech Stack:**
-- Language: Python 3.x
-- Package Manager: `uv` (run all scripts with `uv run python <script>`)
-- Libraries: `nltk` (stopwords, PorterStemmer), `beautifulsoup4` (SGML parsing), `pickle` (index serialization)
-- No scikit-learn, no pre-built IR toolkits — everything is built from scratch
+This file is the authoritative, up-to-date context for any LLM agent working on this repository.
+It explains the architecture, execution flow, current implementation status, known gaps, and safe modification strategy.
 
 ---
 
-### Sequential Execution Flow — Which File Handles Each Step
+## 1) Project Purpose
 
-**Step 1 — Parse raw SGML files** → `src/data_loader.py`
-Reads all 22 `.sgm` files from `data/raw/`, extracts title + body from each article, saves to `data/processed/documents.json`
+This project is an Information Retrieval system for Reuters-21578 news articles.
 
-**Step 2 — Preprocess text** → `src/preprocessor.py`
-Defines `TextPreprocessor` class (tokenize → remove stopwords → stem). Used internally by every other stage — not run standalone.
-
-**Step 3 — Build Inverted Index** → `src/indexer.py` + `build_index.py`
-`indexer.py` defines the `InvertedIndex` class. `build_index.py` is the script that actually runs it — loads documents, builds the index, saves to `data/index/inverted_index.pkl`
-
-**Step 4 — Define Retrieval Models** → `src/retrieval.py`
-Defines `TFIDFRetrieval` and `BM25Retrieval` classes. Not run standalone — imported and used by the evaluation and search scripts.
-
-**Step 5 — Define Query Expansion** → `src/query_expansion.py`
-Defines `PseudoRelevanceFeedback` class (two-pass BM25 search with term expansion). Not run standalone — imported and used by evaluation and search scripts.
-
-**Step 6 — Create Ground Truth Labels** → `label_relevance_pooled.py`
-Interactive script — pools top results from all 3 models per query, asks user to label each document Y/N, saves to `data/relevance_judgments.json`. Run once per query set.
-
-**Step 7 — Define Evaluation Metrics** → `evaluation/metrics.py`
-Defines `precision_at_k`, `recall`, `average_precision`, `mean_average_precision`. Not run standalone — imported by `run_experiments.py`.
-
-**Step 8 — Run Evaluation & Get Final Results** → `experiments/run_experiments.py`
-The main script. Loads index + queries + judgments, runs all 3 models on all 10 queries, computes all metrics, prints the full evaluation report.
-
----
-**Supporting / Optional Scripts:**
-
-- `search.py` — Interactive demo. Type any query, see TF-IDF / BM25 / PRF results side by side.
-- `inspect_index.py` — Debug utility to inspect index contents. Not part of main pipeline.
-- `label_relevance.py` — Old non-pooled labeling tool. Superseded by `label_relevance_pooled.py`. Do not use.
-
----
-**Data Files (not scripts):**
-
-- `data/queries.json` — The 10 test queries (query_id, text, type, description)
-- `data/relevance_judgments.json` — The ground truth answer key (output of step 6)
-- `data/processed/documents.json` — Parsed articles (output of step 1)
-- `data/index/inverted_index.pkl` — The serialized index (output of step 3)
+Core objectives:
+- Parse Reuters SGML documents
+- Preprocess text (tokenization, stopwords, stemming)
+- Build an inverted index
+- Retrieve with TF-IDF and BM25
+- Apply pseudo-relevance feedback (PRF) query expansion
+- Evaluate with pooled relevance judgments (P@5, P@10, Recall, AP, MAP)
+- Add enhanced PRF components for ambiguity/noise robustness
 
 ---
 
-## 2. Project Directory Structure
+## 2) Current Repository State (Important)
 
-```
+As of current state:
+- Baseline IR pipeline is functional end-to-end.
+- `data/raw`, `data/processed/documents.json`, and `data/index/inverted_index.pkl` exist.
+- Baseline evaluation script (`experiments/run_experiments.py`) uses **baseline PRF** (`search_with_prf`), not the enhanced method.
+- Enhanced modules exist under `src/enhancements`.
+- Enhanced PRF entrypoint exists in `src/query_expansion.py` as `search_with_prf_enhanced(...)`.
+- Tests folder exists and direct Python execution passes for current test set.
+
+Practical environment notes:
+- `uv` may not be installed on some machines; use `python ...` as fallback.
+- `pytest` may be missing; tests can be invoked by direct Python import/execution.
+- `build_index.py` prints a Unicode arrow character that may fail on Windows cp1252 consoles.
+
+---
+
+## 3) High-Level Architecture
+
+Pipeline:
+1. SGML parsing -> `src/data_loader.py`
+2. Text preprocessing -> `src/preprocessor.py`
+3. Inverted index build/load -> `src/indexer.py` + `build_index.py`
+4. Retrieval scoring -> `src/retrieval.py`
+5. Query expansion -> `src/query_expansion.py`
+6. Metrics -> `evaluation/metrics.py`
+7. Experiment runner -> `experiments/run_experiments.py`
+
+Enhancement modules (new):
+- `src/enhancements/ambiguity_detector.py`
+- `src/enhancements/feedback_scorer.py`
+- `src/enhancements/semantic_clusterer.py`
+
+---
+
+## 4) Directory Map
+
+```text
 IR-project/
-│
 ├── data/
-│   ├── raw/                      ← 22 Reuters .sgm SGML files (input)
-│   ├── processed/
-│   │   └── documents.json        ← Parsed documents (output of data_loader.py)
-│   ├── index/
-│   │   └── inverted_index.pkl    ← Serialized inverted index (output of build_index.py)
-│   ├── queries.json              ← 10 test queries with IDs, text, type, description
-│   └── relevance_judgments.json  ← Manual relevance labels (Y/N per doc per query)
-│
+│   ├── raw/                       # Reuters SGM files (22 files)
+│   ├── processed/documents.json   # Parsed article text
+│   ├── index/inverted_index.pkl   # Serialized index artifact
+│   ├── queries.json               # 10 query set
+│   └── relevance_judgments.json   # pooled labels
 ├── src/
-│   ├── data_loader.py            ← SGML parser, extracts title+body from Reuters files
-│   ├── preprocessor.py           ← Tokenization, stopword removal, Porter stemming
-│   ├── indexer.py                ← Builds and serializes the Inverted Index
-│   ├── retrieval.py              ← TF-IDF and BM25 retrieval classes
-│   └── query_expansion.py        ← Pseudo-Relevance Feedback (PRF) class
-│
-├── evaluation/
-│   └── metrics.py                ← P@K, Recall, Average Precision, MAP metrics
-│
+│   ├── data_loader.py
+│   ├── preprocessor.py
+│   ├── indexer.py
+│   ├── retrieval.py
+│   ├── query_expansion.py
+│   └── enhancements/
+│       ├── __init__.py
+│       ├── ambiguity_detector.py
+│       ├── feedback_scorer.py
+│       └── semantic_clusterer.py
+├── evaluation/metrics.py
 ├── experiments/
-│   ├── run_experiments.py        ← Main evaluation script — compares all three models
-│   └── analysis.md               ← Written report of project findings
-│
-├── build_index.py                ← One-time script to build the inverted index from documents.json
-├── label_relevance_pooled.py     ← Interactive tool to manually label document relevance (TREC pooling)
-├── label_relevance.py            ← Older non-pooled labeling tool (not used for final evaluation)
-├── search.py                     ← Interactive search demo: type a query, see TF-IDF/BM25/PRF results
-├── inspect_index.py              ← Debug script to inspect index contents
-├── context.md                    ← THIS FILE
-└── MASTER.md                     ← Original project blueprint
+│   ├── run_experiments.py
+│   └── analysis.md
+├── tests/
+│   ├── enhancements/
+│   │   ├── test_ambiguity_detector.py
+│   │   ├── test_feedback_scorer.py
+│   │   └── test_semantic_clusterer.py
+│   ├── test_integration.py
+│   └── test_end_to_end.py
+├── demo/
+│   ├── index.html
+│   ├── static/
+│   └── templates/
+├── build_index.py
+├── search.py
+├── label_relevance.py
+├── label_relevance_pooled.py
+├── MASTER.md
+├── MASTER_IMPLEMENTATION_GUIDE.md
+└── context.md
 ```
 
 ---
 
-## 3. Complete Execution Flow (Step by Step)
+## 5) Core Modules Explained
 
-### Step 1: Parse Raw SGML Files → `data/processed/documents.json`
+### `src/data_loader.py`
+- Parses Reuters SGML files using BeautifulSoup.
+- Extracts `newid`, `title`, and `body`.
+- Creates normalized document records:
+  - `{"doc_id": "...", "text": "..."}`
+- Writes `data/processed/documents.json`.
 
-**Script:** `uv run python src/data_loader.py`
+### `src/preprocessor.py`
+- Tokenization via regex
+- Stopword removal via NLTK English list
+- Porter stemming
+- Used consistently for indexing and querying.
 
-**What happens:**
-- Reads all 22 `.sgm` files from `data/raw/`
-- Uses `BeautifulSoup` with `html.parser` to parse SGML markup
-  - IMPORTANT: Must use `html.parser`, NOT `lxml` — `lxml` incorrectly hoists nested `<BODY>` tags out of their parent `<REUTERS>` blocks
-- For each `<REUTERS>` element, extracts:
-  - `NEWID` attribute → becomes `doc_id`
-  - `<TITLE>` tag text → article headline
-  - `<BODY>` tag text → article body text
-- Concatenates `title + body` → runs `clean_text()` (lowercase, collapse whitespace)
-- Skips documents where combined text is empty
-- Saves as `data/processed/documents.json` — a JSON array of `{"doc_id": "...", "text": "..."}` dicts
+### `src/indexer.py`
+- Stores:
+  - `index[term] -> [(doc_id, tf), ...]`
+  - `doc_lengths[doc_id]`
+  - `doc_count`, `avg_doc_length`
+- Supports save/load with pickle.
 
-**Output:** 20,841 documents saved. ~737 empty/malformed documents were skipped.
+### `src/retrieval.py`
+- `TFIDFRetrieval.search(...)`
+- `BM25Retrieval.search(...)`
+- BM25 defaults:
+  - `k1 = 1.5`
+  - `b = 0.75`
 
----
+### `src/query_expansion.py`
+Class: `PseudoRelevanceFeedback`
 
-### Step 2: Build the Inverted Index → `data/index/inverted_index.pkl`
+Baseline:
+- `search_with_prf(...)`
+  - initial retrieval
+  - select top feedback docs
+  - extract expansion terms via corpus-aware filters
+  - build deduplicated expanded query
+  - rerun retrieval
 
-**Script:** `uv run python build_index.py`
+Enhanced:
+- `search_with_prf_enhanced(...)`
+  - adaptive ambiguity detection
+  - feedback quality filtering
+  - semantic clustering term extraction
+  - fallback to baseline if doc text is unavailable
 
-**What happens:**
-- Loads `documents.json`
-- Creates a `TextPreprocessor` and an `InvertedIndex` instance
-- Calls `index.build_index(documents, preprocessor)` which:
-  - For each document:
-    - Preprocesses text → gets list of stemmed tokens
-    - Counts token frequencies using `Counter`
-    - Stores `doc_id → token_count` in `doc_lengths` dict
-    - Appends `(doc_id, tf)` pairs to `index[term]` for each unique term
-  - After all docs: calculates `doc_count` and `avg_doc_length`
-- Serializes the entire `InvertedIndex` object to disk using `pickle`
+Key integration nuance:
+- Enhanced method needs document text via `doc_lookup` in PRF constructor.
+- If caller instantiates `PseudoRelevanceFeedback(index, preprocessor)` without `doc_lookup`,
+  enhanced path cannot resolve doc text and falls back.
 
-**The Inverted Index structure:**
-```python
-index.index = {
-    "bank":   [("12093", 4), ("5672", 2), ("19798", 7), ...],  # term → [(doc_id, tf), ...]
-    "oil":    [("2", 4), ("6", 2), ("8", 1), ...],
-    "jaguar": [("441", 1), ("9823", 3), ...],
-    ...  # 34,405 unique stemmed terms
-}
-index.doc_lengths = {"12093": 142, "5672": 88, ...}  # doc_id → total token count
-index.doc_count = 20841
-index.avg_doc_length = 88.33
-```
+### `evaluation/metrics.py`
+- `precision_at_k`
+- `recall`
+- `average_precision`
+- `mean_average_precision`
 
-**Output:** `data/index/inverted_index.pkl` — this file never changes once built.
-
----
-
-### Step 3: Label Document Relevance → `data/relevance_judgments.json`
-
-**Script:** `uv run python label_relevance_pooled.py`
-
-**What happens (TREC-style Pooling):**
-
-1. Loads the index, all 3 models (TF-IDF, BM25, PRF)
-2. For each of the 10 test queries:
-   - Runs all 3 models with `top_k=10` each → gets 30 results total (with possible overlaps)
-   - **Pools** them: combines and deduplicates into ~20-25 unique documents per query
-   - Shows each unique document's first 300 characters to the user
-   - User types: `Y` (relevant), `N` (not relevant), `S` (skip query), `Q` (quit)
-   - Saves labels immediately after each query: `{doc_id: 1 (relevant) or 0 (not relevant)}`
-3. Saves to `relevance_judgments.json`
-
-**Why TREC-style pooling?**
-Without pooling, if you only label BM25's results and then score all models against those labels, BM25 gets an unfair advantage — it's being evaluated against its own results. Pooling ensures every model's top results are in the labeled set, giving a fair "answer key" for all three.
-
-**Output format of `relevance_judgments.json`:**
-```json
-{
-  "Q001": {"441": 1, "9823": 0, "7712": 1, ...},
-  "Q002": {"12093": 1, "5672": 0, ...},
-  ...
-}
-```
-
-**CRITICAL WARNING:** Re-running this script will CHANGE the relevance judgments, which will change all evaluation scores. Only re-run if a query's text has changed or new queries were added.
+### `experiments/run_experiments.py`
+- Loads index, query set, labels
+- Runs TF-IDF, BM25, and baseline BM25+PRF
+- Prints aggregate + per-query report
 
 ---
 
-### Step 4: Run Experiments → Terminal Output
+## 6) Enhancement Modules (Design + Behavior)
 
-**Script:** `uv run python -B experiments/run_experiments.py`
+### `ambiguity_detector.py`
+Goal:
+- Determine whether feedback set is semantically coherent.
 
-(The `-B` flag prevents Python from using cached `.pyc` bytecode — ensures fresh code is always used)
+Method:
+- TF-IDF vectorization
+- pairwise cosine similarity
+- mean similarity = coherence score
+- below threshold => ambiguous (conservative expansion)
 
-**What happens:**
-1. Loads index from `inverted_index.pkl`
-2. Loads queries from `queries.json`
-3. Loads relevance judgments from `relevance_judgments.json`
-4. Instantiates all 3 models
-5. For each model, runs `run_model()` which:
-   - Iterates over all 10 queries
-   - Calls the model's search function → gets a ranked list of `(doc_id, score)` pairs
-   - Computes `AP`, `P@5`, `P@10`, `Recall` against the ground truth judgment set
-   - Appends scores to lists
-6. Computes `MAP` = mean of all 10 AP scores
-7. Prints the full evaluation report
+Returns:
+- `is_ambiguous`
+- `coherence_score`
+- `classification`
+- `recommended_params` (feedback docs + expansion terms + weights)
 
----
+### `feedback_scorer.py`
+Goal:
+- Filter noisy feedback documents before term extraction.
 
-## 4. Module Deep-Dive
+Method:
+- relevance score: cosine(query, doc)
+- coherence score: average cosine(doc, other docs)
+- quality = alpha * relevance + beta * coherence
+- keep docs above threshold
+- enforce minimum keep count safety
 
-### 4.1 `src/preprocessor.py` — TextPreprocessor
+### `semantic_clusterer.py`
+Goal:
+- Avoid mixing terms from multiple senses of ambiguous queries.
 
-**Pipeline:** raw text → tokenize → remove stopwords → stem → list of tokens
+Method:
+- TF-IDF vectorize docs
+- similarity graph with threshold edges
+- connected components as semantic clusters
+- use largest cluster for term extraction
 
-```python
-preprocessor = TextPreprocessor()
-tokens = preprocessor.preprocess("Oil prices fell sharply in Middle East markets")
-# → ["oil", "price", "fell", "sharpli", "middl", "east", "market"]
-```
-
-- **Tokenize:** `re.findall(r'\b[a-z0-9]+\b', text.lower())` — extracts lowercase word tokens
-- **Stopword removal:** Uses NLTK English stopword list + removes single-character tokens
-- **Stemming:** NLTK `PorterStemmer` — reduces words to root form
-  - Examples: `financial` → `financi`, `prices` → `price`, `banking` → `bank`
-- This same preprocessor is used on BOTH documents (during indexing) AND queries (during retrieval), ensuring the vocabulary matches
-
----
-
-### 4.2 `src/indexer.py` — InvertedIndex
-
-The core data structure of all search engines. Maps terms to the documents containing them.
-
-**Key methods:**
-- `build_index(documents, preprocessor)` — builds the index from scratch
-- `get_postings(term)` → `[(doc_id, tf), ...]` — returns all documents containing the term
-- `get_document_frequency(term)` → `int` — how many documents contain this term
-- `save(path)` / `InvertedIndex.load(path)` — pickle serialization/deserialization
+Outputs:
+- cluster metadata
+- expansion term list (term, score)
 
 ---
 
-### 4.3 `src/retrieval.py` — TFIDFRetrieval and BM25Retrieval
+## 7) Data Contracts
 
-Both models follow the same pattern:
-1. Preprocess the query → get stemmed query terms
-2. Look up postings for each query term
-3. Collect all "candidate documents" (any doc containing at least one query term)
-4. Score each candidate document
-5. Sort by score descending → return top-k
+### `data/queries.json`
+List of objects:
+- `query_id` (e.g., `Q001`)
+- `text`
+- `type` (`ambiguous` or `specific`)
+- `description`
 
-**TF-IDF Formula:**
-```
-Score(d, q) = Σ [ TF(t,d) × log(N / DF(t)) ]
-```
-- `TF(t,d)` = raw term frequency of term t in document d
-- `N` = total documents (20,841)
-- `DF(t)` = number of documents containing term t
-- `IDF = log(N / DF)` — rare terms get higher weight
+### `data/relevance_judgments.json`
+Dictionary:
+- key: query id
+- value: dictionary of `doc_id -> 0/1`
 
-**Limitation:** Does not handle document length. A 5,000-word article mentioning "bank" 50 times scores higher than a precise 100-word article mentioning it once, even if the shorter article is more relevant.
-
-**BM25 Formula:**
-```
-Score(d, q) = Σ IDF(t) × [TF(t,d) × (k1+1)] / [TF(t,d) + k1 × (1 - b + b × |d|/avgdl)]
-```
-- Parameters: `k1 = 1.5`, `b = 0.75`
-- **IDF variant:** `log((N - DF + 0.5) / (DF + 0.5) + 1.0)` — Robertson variant
-- **k1** controls TF saturation: higher TF still increases score, but with diminishing returns
-- **b** controls length normalization: longer documents are penalized proportionally
-
-**Why BM25 beats TF-IDF here:** The Reuters corpus has articles of vastly different lengths (50 to 5,000+ words). BM25's length normalization ensures a concise, highly relevant 80-word article can rank above a 5,000-word article that just happens to mention the query term many times in passing.
+### `data/processed/documents.json`
+List:
+- `doc_id` (string)
+- `text` (title + body merged and cleaned)
 
 ---
 
-### 4.4 `src/query_expansion.py` — PseudoRelevanceFeedback
+## 8) How to Run (Robust Commands)
 
-**Core idea:** Run BM25 once, assume the top-5 results are relevant, extract the most informative vocabulary from those docs, append it to the original query, run BM25 again.
+From project root:
 
-**The `search_with_prf()` method — 5 steps:**
-
-```
-Step 1: Run BM25 with original query → get top-5 results
-Step 2: Treat those 5 documents as "pseudo-relevant"
-Step 3: Extract top-5 expansion terms from those 5 documents
-Step 4: Build expanded query = original_terms + new_terms (each term exactly once)
-Step 5: Run BM25 again with the expanded query → return final results
-```
-
-**How expansion terms are selected (`_extract_expansion_terms`):**
-- Iterates over every term in the inverted index
-- Skips terms already in the original query (prevents repetition)
-- Skips very common terms (appearing in >50% of corpus) — too generic
-- Skips very rare terms (appearing in <0.1% of corpus) — too noisy
-- A term must appear in at least 40% of the 5 feedback documents to qualify
-- Surviving terms are scored by `TF_feedback × IDF_corpus`
-- Returns the top-M terms sorted by this score
-
-**Deduplication guarantee:**
-The expanded query builder uses a `seen` set — every term (from both original and new) appears **exactly once**.
-
-```python
-seen = set()
-all_terms = []
-for t in original_terms:
-    if t not in seen:
-        all_terms.append(t)
-        seen.add(t)
-for t in new_terms:
-    if t not in seen:
-        all_terms.append(t)
-        seen.add(t)
-expanded_query = ' '.join(all_terms)
-```
-
-**Current parameters:**
-- `feedback_docs = 5` (number of top results read as pseudo-relevant)
-- `expansion_terms = 5` (number of new terms to add to query)
-
-**Why these parameters?** Empirically validated through controlled experiments:
-| Configuration | PRF MAP |
-|---|---|
-| feedback_docs=5, expansion_terms=5 | **0.4591** (BEST) |
-| feedback_docs=7, expansion_terms=5 | 0.3572 |
-| feedback_docs=10, expansion_terms=3 | 0.3124 (WORST) |
-
-Documents beyond rank 5 are progressively less relevant. Reading them introduces vocabulary noise that damages expansion quality.
-
----
-
-### 4.5 `evaluation/metrics.py` — IR Metrics
-
-All four metrics implemented from scratch using pure Python:
-
-**Precision@K:**
-```python
-hits = count of relevant docs in top-K retrieved
-P@K = hits / K
-```
-Answers: "How many of my first K results were correct?"
-
-**Recall:**
-```python
-hits = count of relevant docs in retrieved set
-Recall = hits / total_relevant_docs
-```
-Answers: "Out of all relevant documents that exist, how many did I find?"
-
-**Average Precision (AP):**
-```python
-# For each relevant document found, compute precision at that rank
-# Average those precision values across all relevant docs
-AP = (1 / |relevant|) × Σ [precision_at_rank_i × relevance_i]
-```
-Answers: "How well did I rank the relevant documents?" — rewards models that put relevant results near the top.
-
-**Mean Average Precision (MAP):**
-```python
-MAP = mean(AP_q1, AP_q2, ..., AP_q10)
-```
-The single most important overall metric — averages AP across all 10 queries.
-
----
-
-## 5. The 10 Test Queries
-
-### Ambiguous Queries (5) — Designed to challenge retrieval systems
-
-| ID | Query | Ambiguity Type |
-|---|---|---|
-| Q001 | jaguar | Animal (big cat) vs Jaguar Cars automotive company |
-| Q002 | bank interest rate | Banking institutions vs general monetary interest rate policy |
-| Q003 | stock | Farm livestock vs financial stock/shares |
-| Q004 | market crash 1987 | The 1987 Black Monday stock market collapse |
-| Q005 | turkey | Country of Turkey vs turkey bird |
-
-### Specific Queries (5) — Clear, unambiguous financial topics
-
-| ID | Query | Topic |
-|---|---|---|
-| Q006 | stock market crash | Financial market decline events |
-| Q007 | oil prices middle east | Petroleum pricing in Middle East region |
-| Q008 | interest rate policy | Central bank monetary policy |
-| Q009 | international trade agreement | Global trade deals between nations |
-| Q010 | corporate merger acquisition | Company M&A announcements |
-
-**Design rationale for Q002 and Q004:**
-Initially, Q002 was just "bank" and Q004 was just "crash". These single-word queries caused catastrophic PRF Query Drift (PRF AP → 0.0000). They were updated to more contextual multi-word queries to create a more realistic evaluation scenario — users rarely search for single ambiguous words without any context.
-
----
-
-## 6. Final Evaluation Results
-
-These are the final, stable results with `feedback_docs=5, expansion_terms=5`:
-
-```
-Model          MAP      P@5     P@10   Recall
-TF-IDF       0.4573   0.9400   0.8500   0.4912
-BM25         0.5211   0.9800   0.9000   0.5388
-BM25 + PRF   0.4591   0.9400   0.8000   0.4757
-```
-
-### PRF Per-Query Wins and Losses:
-
-| Query | BM25 AP | PRF AP | Verdict |
-|---|---|---|---|
-| Q001 jaguar | 0.8571 | **0.9478** | ✅ PRF WINS (+0.09) |
-| Q002 bank interest rate | 0.5094 | 0.4159 | ❌ PRF loses |
-| Q003 stock | 0.3333 | 0.0217 | ❌ Severe Query Drift |
-| Q004 market crash 1987 | 0.3913 | **0.4626** | ✅ PRF WINS (+0.07) |
-| Q005 turkey | 0.6965 | 0.2941 | ❌ Severe Query Drift |
-| Q006 stock market crash | 0.4162 | **0.4716** | ✅ PRF WINS (+0.06) |
-| Q007 oil prices middle east | 0.5351 | **0.5629** | ✅ PRF WINS (+0.03) |
-| Q008 interest rate policy | 0.4762 | 0.4603 | ≈ Near tie |
-| Q009 international trade agreement | 0.4348 | **0.4783** | ✅ PRF WINS (+0.04) |
-| Q010 corporate merger acquisition | 0.5607 | 0.4762 | ❌ PRF loses |
-
-**PRF wins on 5/10 queries, loses on 4, near-ties on 1.**
-
----
-
-## 7. Key Findings and Academic Explanations
-
-### Finding 1: BM25 > TF-IDF on Domain-Specific Corpora
-BM25 MAP (0.5211) > TF-IDF MAP (0.4573). BM25's document length normalization prevents long articles from unfairly dominating rankings.
-
-### Finding 2: PRF is Query-Dependent
-PRF does NOT automatically improve retrieval. It improves results when the initial BM25 results are topically coherent (specific multi-word queries), and hurts when they are mixed/ambiguous (single-word queries).
-
-### Finding 3: PRF Wins on Majority of Queries (5 out of 10)
-Despite the lower overall MAP, PRF wins on more than half the queries. The lower MAP is caused by severe drops on 2 queries (Q003, Q005) which drag the average down heavily.
-
-### Finding 4: Query Drift Explanation
-**Query Drift occurs when:**
-1. The original query is a single ambiguous word (e.g., "stock", "turkey")
-2. BM25's top-5 results accidentally focus on ONE interpretation
-3. PRF extracts vocabulary from those 5 documents (all same interpretation)
-4. The expanded query becomes hyper-specific to that one interpretation
-5. The second search misses all documents representing other valid interpretations
-6. Many newly retrieved documents are not in the labeled pool → counted as wrong
-
-**Example (Q003 "stock"):**
-- BM25 returned a mix of financial stock AND livestock articles
-- PRF's 5 feedback docs happened to be all livestock articles
-- PRF expanded query with livestock vocabulary: "stock cattle farm sheep"
-- Second search found only livestock articles → 0 financial stock articles retrieved
-- AP dropped from 0.3333 to 0.0217
-
-### Finding 5: Feedback Pool Size Sensitivity
-Tested three configurations — larger feedback pools consistently hurt performance because documents at rank 6-10 are lower quality and introduce vocabulary noise.
-
-### Finding 6: Pooling Bias Is Real
-When we initially labeled only BM25's results, BM25 scored 0.9443 MAP while PRF scored only 0.3424. After switching to TREC-style pooled labeling (labeling results from all three models), BM25 dropped to 0.5211 and PRF rose significantly. The initial high BM25 score was entirely due to evaluation bias, not actual retrieval quality.
-
----
-
-## 8. Important Design Decisions and Bug History
-
-### 8.1 Parser Switch: lxml → html.parser
-**Problem:** Initial code used BeautifulSoup with `lxml` parser. `lxml` treated SGML as HTML and hoisted `<BODY>` tags out of their parent `<REUTERS>` elements, causing many documents to return empty body text.
-**Fix:** Switched to `html.parser` which correctly preserves the nested SGML structure.
-
-### 8.2 Evaluation Methodology: Simple Labeling → TREC Pooling
-**Problem:** Initially labeled only BM25's top results. This gave BM25 a MAP of 0.9443 — artificially inflated because it was evaluated against its own result set.
-**Fix:** Implemented TREC-style pooling in `label_relevance_pooled.py` — all three models contribute to the labeled pool.
-
-### 8.3 Removed original_weight Repetition Bug
-**Problem:** `query_expansion.py` had an `original_weight=3.0` parameter that multiplied original query terms 3 times: `["market", "crash", "1987", "market", "crash", "1987", "market", "crash", "1987", ...]`. This caused the expanded query string to display as `"market crash market crash market crash boe repair inspector"`.
-**Fix:** Removed `original_weight` entirely. Now uses a `seen` set to guarantee each term appears exactly once.
-
-### 8.4 Python Pycache Issue
-**Problem:** After fixing `query_expansion.py`, results didn't change because Python used the cached `.pyc` bytecode in `__pycache__/` folders.
-**Fix:** Run with `python -B` flag: `uv run python -B experiments/run_experiments.py`
-
-### 8.5 Query Design: Single-Word → Multi-Word for Q002 and Q004
-**Problem:** "bank" and "crash" as bare single-word queries caused zero/near-zero PRF AP due to extreme query drift.
-**Fix:** Changed Q002 to "bank interest rate" and Q004 to "market crash 1987", providing enough context for BM25 to return more coherent initial results, which gives PRF cleaner vocabulary to work with.
-
----
-
-## 9. How to Run Everything (Command Reference)
-
-All commands must be run from the project root: `D:\B.Tech\Sem 6\IR\IR-project\`
-
+Preferred if `uv` is available:
 ```bash
-# Step 1: Parse SGML files into documents.json (run once)
-uv run python src/data_loader.py
-
-# Step 2: Build inverted index (run once)
 uv run python build_index.py
-
-# Step 3: Label document relevance (run once per query set)
-# WARNING: Re-running changes the answer key and changes all evaluation scores
-uv run python label_relevance_pooled.py
-
-# Step 4: Run evaluation experiment
-uv run python -B experiments/run_experiments.py
-
-# Optional: Interactive search demo
+uv run python experiments/run_experiments.py
 uv run python search.py
+```
 
-# Optional: Inspect index contents
-uv run python inspect_index.py
+Fallback with plain Python:
+```bash
+python build_index.py
+python experiments/run_experiments.py
+python search.py
+```
+
+Windows encoding-safe run for scripts with unicode output:
+```bash
+$env:PYTHONIOENCODING='utf-8'; python experiments/run_experiments.py
 ```
 
 ---
 
-## 10. File-by-File Parameter Summary
+## 9) Evaluation Methodology
 
-| File | Parameter | Current Value | Effect |
-|---|---|---|---|
-| `experiments/run_experiments.py` | `TOP_K` | 15 | Retrieve & evaluate top-15 results per query |
-| `experiments/run_experiments.py` | `feedback_docs` | 5 | PRF reads top-5 BM25 results as pseudo-relevant |
-| `experiments/run_experiments.py` | `expansion_terms` | 5 | PRF adds 5 new terms to the query |
-| `label_relevance_pooled.py` | `POOL_DEPTH` | 10 | Pool top-10 from each model = ~25 unique docs to label |
-| `src/retrieval.py` BM25 | `k1` | 1.5 | TF saturation constant (standard value) |
-| `src/retrieval.py` BM25 | `b` | 0.75 | Document length normalization (standard value) |
-| `src/query_expansion.py` PRF | min DF threshold | 0.1% of corpus | Filter very rare terms from expansion |
-| `src/query_expansion.py` PRF | max DF threshold | 50% of corpus | Filter very common terms from expansion |
-| `src/query_expansion.py` PRF | feedback coverage | 40% of feedback docs | Term must appear in ≥2 of 5 feedback docs |
+Model comparison includes:
+- TF-IDF baseline
+- BM25 baseline
+- BM25 + PRF baseline
 
----
+Metrics:
+- P@5
+- P@10
+- Recall
+- AP
+- MAP
 
-## 11. What PRF's Expanded Query Looks Like
-
-Example for query `"oil prices middle east"`:
-
-```
-Original query tokens : ["oil", "price", "middl", "east"]
-Feedback doc pool     : Top-5 BM25 results for this query
-Expansion terms found : ["barrel", "opec", "petroleum", "brent", "crude"]
-Final expanded query  : "oil price middl east barrel opec petroleum brent crude"
-Second BM25 search    : Uses this expanded query → retrieves more oil-focused articles
-```
-
-The expanded query string is passed directly to BM25's `search()` method, which preprocesses it again (tokenize → stopword remove → stem) before scoring — so the terms go through the same pipeline a second time.
+Labeling protocol:
+- Use pooled labeling (`label_relevance_pooled.py`) to reduce model bias.
+- Re-labeling changes results, so treat labels as versioned ground truth.
 
 ---
 
-*End of context document. This project is in a stable, submission-ready state.*
-*Last updated: April 2026 | Parameters: feedback_docs=5, expansion_terms=5*
+## 10) Testing Status
+
+Existing test files:
+- `tests/enhancements/test_ambiguity_detector.py`
+- `tests/enhancements/test_feedback_scorer.py`
+- `tests/enhancements/test_semantic_clusterer.py`
+- `tests/test_integration.py`
+- `tests/test_end_to_end.py` (currently smoke placeholder)
+
+Current operational note:
+- Tests were validated via direct Python invocation in environments where `pytest` is unavailable.
+
+---
+
+## 11) Known Gaps / Next Actions
+
+1. **Enhanced PRF not yet used in experiments**
+   - `experiments/run_experiments.py` still calls `search_with_prf(...)`.
+   - Next: add an additional model arm for `search_with_prf_enhanced(...)`.
+
+2. **Enhanced PRF caller wiring**
+   - For enhanced mode, instantiate:
+     - `PseudoRelevanceFeedback(index, preprocessor, doc_lookup=...)`
+   - `doc_lookup` should map doc_id -> full document text.
+
+3. **Windows print encoding in `build_index.py`**
+   - Unicode arrow in a print line may raise cp1252 encode errors.
+   - Replace arrow with ASCII text or set UTF-8 output environment.
+
+4. **README is empty**
+   - Add onboarding instructions for setup/run/test.
+
+5. **Test rigor can be improved**
+   - Current tests are practical smoke/unit checks.
+   - Add deterministic fixture-based assertions for stable CI behavior.
+
+---
+
+## 12) Safe Editing Guidelines for LLM Agents
+
+- Prefer minimal, isolated changes.
+- Do not alter query labels unless explicitly requested.
+- Do not overwrite `data/relevance_judgments.json` casually.
+- Keep baseline behavior intact while adding enhanced alternatives.
+- When changing evaluation scripts, preserve old model outputs for comparability.
+- Verify with at least:
+  - import smoke test
+  - enhancement unit tests
+  - integration script
+
+---
+
+## 13) Quick Orientation for a New LLM
+
+If you are newly attached to this repo, do this in order:
+1. Read this file (`context.md`).
+2. Read `src/query_expansion.py` and `experiments/run_experiments.py`.
+3. Confirm data artifacts exist in `data/index` and `data/processed`.
+4. Run experiments once to establish current baseline.
+5. If implementing improvements, add new model arms rather than replacing baseline.
+
+---
+
+## 14) Current Dependencies
+
+From `pyproject.toml`:
+- `bs4`
+- `lxml`
+- `nltk`
+- `numpy`
+- `scikit-learn`
+
+---
+
+This context is intended to be accurate to the current repository state and should be updated whenever pipeline behavior, evaluation methodology, or enhancement wiring changes.

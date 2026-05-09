@@ -11,9 +11,10 @@ build/
 venv/
 .env/
 
-# Data files (large)
-data/raw/*.sgm
-data/index/*.pkl
+# Data files (large/generated)
+data/*
+!data/queries.json
+!data/relevance_judgments.json
 
 # Results (optional to track)
 results/logs/

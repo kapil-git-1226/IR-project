@@ -9,4 +9,5 @@ dependencies = [
     "lxml>=6.0.2",
     "nltk>=3.9.4",
     "numpy>=2.4.4",
+    "scikit-learn>=1.7.0",
 ]
